@@ -189,7 +189,7 @@ function renderSongs(filter) {
     html += '<li><button type="button" data-song="' + esc(t) + '"' + (isTaken ? ' disabled class="taken"' : '') + '><span class="song-main"><span class="song-title">' + esc(t) + '</span>' + (isTaken ? '<span class="taken-by">Requested by ' + esc(takenBy[t] || '') + '</span>' : '') + '</span><span class="arrow">&rsaquo;</span></button></li>';
   }
   listEl.innerHTML = html;
-  countEl.textContent = q ? ('Showing ' + shown + ' of ' + SONGS.length + ' songs') : (SONGS.length + ' songs');
+  countEl.textContent = '';
   noResultsEl.hidden = shown !== 0;
 }
 
