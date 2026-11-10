@@ -46,6 +46,10 @@
   .requests { margin-top: 36px; border-top: 1px solid #2a2a2a; padding-top: 22px; }
   .requests h2 { display: flex; align-items: baseline; gap: 10px; }
   .badge { background: #d4a437; color: #111; font-size: 13px; font-weight: 800; border-radius: 20px; padding: 2px 10px; }
+  .req-full { background: #7a1f1f; color: #fff; font-weight: 700; text-align: center; padding: 10px 12px; border-radius: 8px; margin: 0 0 16px; }
+  .song-list button.taken { opacity: 0.35; }
+  .song-list button.taken span { text-decoration: line-through; }
+  .submit:disabled { opacity: 0.45; }
   .req-list { list-style: none; margin: 14px 0 0; padding: 0; }
   .req-list li { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
   .req-song { font-weight: 800; font-size: 16px; }
@@ -72,6 +76,8 @@
   <section id="view-list" class="view active">
     <h2>Song list</h2>
     <p class="hint">Tap a song to request it. Type to search the list.</p>
+    <p class="count" id="req-hour-count"></p>
+    <p class="req-full" id="req-full" hidden>Requests are full</p>
     <input id="search" class="search" type="text" placeholder="Search songs&hellip;" autocomplete="off" aria-label="Search songs">
     <p class="count" id="song-count"></p>
     <ul class="song-list" id="song-list"></ul>
@@ -83,6 +89,7 @@
     <button class="back" id="back-from-form" type="button">&larr; Back to song list</button>
     <p class="form-song" id="form-song"></p>
     <p class="form-sub">Log your request and Matthew will play it live.</p>
+    <p class="req-full" id="req-full-form" hidden>Requests are full</p>
     <form id="request-form">
       <label for="requestee">Name of requestee <span class="req">*</span></label>
       <input id="requestee" name="requestee" type="text" required autocomplete="off" placeholder="Your name">
@@ -122,6 +129,33 @@ try {
 } catch (e) { requests = []; }
 
 var currentSong = null;
+var MAX_PER_HOUR = 20;
+var HOUR_MS = 60 * 60 * 1000;
+
+function requestsThisHour() {
+  var cutoff = Date.now() - HOUR_MS, n = 0;
+  for (var i = 0; i < requests.length; i++) { if (requests[i].ts > cutoff) n++; }
+  return n;
+}
+
+function takenSongsThisHour() {
+  var cutoff = Date.now() - HOUR_MS, taken = {};
+  for (var i = 0; i < requests.length; i++) { if (requests[i].ts > cutoff) taken[requests[i].song] = true; }
+  return taken;
+}
+
+function updateHourState() {
+  var n = requestsThisHour();
+  var full = n >= MAX_PER_HOUR;
+  var hc = document.getElementById('req-hour-count');
+  if (hc) hc.textContent = n + ' of 20 requests this hour';
+  var f1 = document.getElementById('req-full');
+  if (f1) f1.hidden = !full;
+  var f2 = document.getElementById('req-full-form');
+  if (f2) f2.hidden = !full;
+  var sb = document.querySelector('#request-form button[type="submit"]');
+  if (sb) sb.disabled = full;
+}
 var listEl = document.getElementById('song-list');
 var countEl = document.getElementById('song-count');
 var noResultsEl = document.getElementById('no-results');
@@ -137,11 +171,13 @@ function renderSongs(filter) {
   var q = (filter || '').trim().toLowerCase();
   var shown = 0;
   var html = '';
+  var taken = takenSongsThisHour();
   for (var i = 0; i < SONGS.length; i++) {
     var t = SONGS[i];
     if (q && t.toLowerCase().indexOf(q) === -1) continue;
     shown++;
-    html += '<li><button type="button" data-song="' + esc(t) + '"><span>' + esc(t) + '</span><span class="arrow">&rsaquo;</span></button></li>';
+    var isTaken = !!taken[t];
+    html += '<li><button type="button" data-song="' + esc(t) + '"' + (isTaken ? ' disabled class="taken"' : '') + '><span>' + esc(t) + '</span><span class="arrow">&rsaquo;</span></button></li>';
   }
   listEl.innerHTML = html;
   countEl.textContent = q ? ('Showing ' + shown + ' of ' + SONGS.length + ' songs') : (SONGS.length + ' songs');
@@ -201,15 +237,20 @@ document.getElementById('request-form').addEventListener('submit', function (e) 
   var name = document.getElementById('requestee').value.trim();
   if (!name || !currentSong) return;
   var note = document.getElementById('note').value.trim();
+  if (requestsThisHour() >= MAX_PER_HOUR || takenSongsThisHour()[currentSong]) { updateHourState(); renderSongs(searchEl.value); showView('view-list'); return; }
   requests.unshift({ song: currentSong, name: name, note: note, ts: Date.now() });
   saveRequests();
   renderRequests();
+  updateHourState();
+  renderSongs(searchEl.value);
   document.getElementById('done-text').textContent = '\u201C' + currentSong + '\u201D requested by ' + name + '. It is now on the requests list below.';
   showView('view-done');
 });
 
 renderSongs('');
 renderRequests();
+updateHourState();
+setInterval(function () { updateHourState(); renderSongs(searchEl.value); }, 30000);
 </script>
 </body>
 </html>
