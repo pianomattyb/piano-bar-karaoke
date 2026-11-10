@@ -47,8 +47,10 @@
   .requests h2 { display: flex; align-items: baseline; gap: 10px; }
   .badge { background: #d4a437; color: #111; font-size: 13px; font-weight: 800; border-radius: 20px; padding: 2px 10px; }
   .req-full { background: #7a1f1f; color: #fff; font-weight: 700; text-align: center; padding: 10px 12px; border-radius: 8px; margin: 0 0 16px; }
-  .song-list button.taken { opacity: 0.35; }
-  .song-list button.taken span { text-decoration: line-through; }
+  .song-list button.taken { opacity: 0.5; }
+  .song-list button.taken .song-title { text-decoration: line-through; }
+  .song-list .song-main { display: flex; flex-direction: column; }
+  .song-list .taken-by { font-size: 13px; color: #d4a437; }
   .submit:disabled { opacity: 0.45; }
   .req-list { list-style: none; margin: 14px 0 0; padding: 0; }
   .req-list li { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
@@ -144,6 +146,12 @@ function takenSongsThisHour() {
   return taken;
 }
 
+function takenByThisHour() {
+  var cutoff = Date.now() - HOUR_MS, by = {};
+  for (var i = 0; i < requests.length; i++) { if (requests[i].ts > cutoff && !by[requests[i].song]) by[requests[i].song] = requests[i].name; }
+  return by;
+}
+
 function updateHourState() {
   var n = requestsThisHour();
   var full = n >= MAX_PER_HOUR;
@@ -172,12 +180,13 @@ function renderSongs(filter) {
   var shown = 0;
   var html = '';
   var taken = takenSongsThisHour();
+  var takenBy = takenByThisHour();
   for (var i = 0; i < SONGS.length; i++) {
     var t = SONGS[i];
     if (q && t.toLowerCase().indexOf(q) === -1) continue;
     shown++;
     var isTaken = !!taken[t];
-    html += '<li><button type="button" data-song="' + esc(t) + '"' + (isTaken ? ' disabled class="taken"' : '') + '><span>' + esc(t) + '</span><span class="arrow">&rsaquo;</span></button></li>';
+    html += '<li><button type="button" data-song="' + esc(t) + '"' + (isTaken ? ' disabled class="taken"' : '') + '><span class="song-main"><span class="song-title">' + esc(t) + '</span>' + (isTaken ? '<span class="taken-by">Requested by ' + esc(takenBy[t] || '') + '</span>' : '') + '</span><span class="arrow">&rsaquo;</span></button></li>';
   }
   listEl.innerHTML = html;
   countEl.textContent = q ? ('Showing ' + shown + ' of ' + SONGS.length + ' songs') : (SONGS.length + ' songs');
